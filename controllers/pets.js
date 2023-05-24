@@ -1,6 +1,39 @@
 const petsRouter = require("express").Router();
+const { verify } = require("jsonwebtoken");
 const Pet = require("../models/pet");
-var cloudinary = require("cloudinary");
+const multer = require("multer");
+const cloudinary = require("cloudinary").v2;
+const { CloudinaryStorage } = require("multer-storage-cloudinary");
+const jwt = require("jsonwebtoken");
+
+const verifyJWT = (req, res, next) => {
+  const token = req.headers.authorization?.split(" ")[1];
+  if (!token) {
+    return res.json({
+      message: "No token provided",
+      isLoggedIn: false,
+    });
+  }
+
+  const decoded = jwt.verify(token, process.env.SECRET);
+  req.user = decoded;
+  next();
+};
+
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+
+const storage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: "users",
+  },
+});
+
+const upload = multer({ storage: storage });
 
 // ("localhost:3002/api/pets");
 
@@ -97,5 +130,16 @@ petsRouter.patch("/returnpet/", async (request, response) => {
   await pet.save();
   response.json(adopterUser);
 });
+
+petsRouter.post(
+  "/addpet",
+  verifyJWT,
+  upload.single("picture"),
+  async (request, response) => {
+    const petObject = request.body;
+    console.log(petObject);
+    console.log(request.file);
+  }
+);
 
 module.exports = petsRouter;
