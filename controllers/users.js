@@ -16,7 +16,7 @@ cloudinary.config({
 const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: {
-    folder: "users",
+    folder: "pets",
   },
 });
 
@@ -68,8 +68,9 @@ usersRouter.post("/", async (request, response) => {
 });
 
 //Login
-usersRouter.post("/login", verifyJWT, async (req, res) => {
+usersRouter.post("/login", async (req, res) => {
   const userLoggedIn = req.body;
+
   try {
     const dbUserArray = await User.find({ email: userLoggedIn.email });
     const dbUser = dbUserArray[0];
@@ -91,11 +92,9 @@ usersRouter.post("/login", verifyJWT, async (req, res) => {
         name: dbUser.firstName,
       };
 
-      const token = await jwt.sign(payload, process.env.SECRET, {
+      const token = jwt.sign(payload, process.env.SECRET, {
         expiresIn: "30d",
       });
-
-      console.log("token", token);
 
       res.json({
         message: "Success",
@@ -112,8 +111,6 @@ usersRouter.post("/login", verifyJWT, async (req, res) => {
     return res.json({ message: "Error signing token" });
   }
 });
-
-// get the token, verify it, and then return the user
 
 usersRouter.get("/loggeduser", verifyJWT, async (req, res) => {
   const user = await User.findById(req.user.id);
@@ -136,7 +133,6 @@ usersRouter.put(
   verifyJWT,
   upload.single("profilePicture"),
   async (req, res) => {
-    const path = req.file.path;
     const userData = req.body;
     const id = req.user.id;
 
@@ -146,14 +142,19 @@ usersRouter.put(
       lastName: userData.lastName,
       email: userData.email,
       phoneNumber: userData.phoneNumber,
-      profilePicture: path,
+      profilePicture: req.file ? req.file.path : undefined,
     };
 
     const updatedUser = await User.findOneAndUpdate(filter, update, {
       new: true,
     });
-    console.log(updatedUser);
+    res.json(updatedUser);
   }
 );
+
+usersRouter.get("/allusers/", verifyJWT, async (req, res) => {
+  const users = await User.find({});
+  res.json(users);
+});
 
 module.exports = usersRouter;
