@@ -6,6 +6,21 @@ const cloudinary = require("cloudinary").v2;
 const { CloudinaryStorage } = require("multer-storage-cloudinary");
 const jwt = require("jsonwebtoken");
 
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+
+const storage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: "pets",
+  },
+});
+
+const upload = multer({ storage: storage });
+
 const verifyJWT = (req, res, next) => {
   const token = req.headers.authorization?.split(" ")[1];
   if (!token) {
@@ -20,24 +35,9 @@ const verifyJWT = (req, res, next) => {
   next();
 };
 
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
-
-const storage = new CloudinaryStorage({
-  cloudinary: cloudinary,
-  params: {
-    folder: "users",
-  },
-});
-
-const upload = multer({ storage: storage });
-
 // ("localhost:3002/api/pets");
 
-petsRouter.get("/", async (request, response) => {
+petsRouter.get("/pets", async (request, response) => {
   const pets = await Pet.find({});
   response.status(200).json(pets);
 });
@@ -90,7 +90,6 @@ petsRouter.patch("/addtofoster/", async (request, response) => {
   const fosterUser = userID;
   pet.fosterUser = fosterUser;
 
-  console.log(pet.fosterUser);
   if (fosterUser === "") {
     return response.status(400).json({
       error:
@@ -137,8 +136,56 @@ petsRouter.post(
   upload.single("picture"),
   async (request, response) => {
     const petObject = request.body;
-    console.log(petObject);
-    console.log(request.file);
+
+    const newPet = new Pet({
+      name: petObject.name,
+      type: petObject.type,
+      adoptionStatus: petObject.adoptionStatus,
+      breed: petObject.breed,
+      size: petObject.size,
+      age: petObject.age,
+      description: petObject.description,
+      dietaryRestrictions: petObject.dietaryRestrictions,
+      hypoallergenic: petObject.hypoallergenic,
+      bio: petObject.bio,
+      color: petObject.color,
+      picture: request.file ? request.file.path : undefined,
+    });
+
+    const savedPet = await newPet.save();
+    response.status(201).json(savedPet);
+  }
+);
+
+petsRouter.put(
+  "/editpet",
+  verifyJWT,
+  upload.single("picture"),
+  async (request, response) => {
+    const petId = request.body._id;
+    const petObject = request.body;
+    const filter = { _id: petId };
+
+    const update = {
+      name: petObject.name,
+      type: petObject.type,
+      adoptionStatus: petObject.adoptionStatus,
+      breed: petObject.breed,
+      size: petObject.size,
+      age: petObject.age,
+      description: petObject.description,
+      dietaryRestrictions: petObject.dietaryRestrictions,
+      hypoallergenic: petObject.hypoallergenic,
+      bio: petObject.bio,
+      color: petObject.color,
+
+      picture: request.file ? request.file.path : undefined,
+    };
+
+    const updatedPet = await Pet.findOneAndUpdate(filter, update, {
+      new: true,
+    });
+    response.json(updatedPet);
   }
 );
 
